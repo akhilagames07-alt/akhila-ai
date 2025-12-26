@@ -1,17 +1,12 @@
-import os
-import openai
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import os
+import openai
 
-# --------------------
-# OpenAI setup
-# --------------------
+# 🔑 API KEY FROM ENV (already set by you)
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# --------------------
-# App setup
-# --------------------
 app = FastAPI(title="Akhila AI")
 
 app.add_middleware(
@@ -21,101 +16,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --------------------
-# Request model
-# --------------------
 class GenerateRequest(BaseModel):
     template: str
     prompt: str
 
-# --------------------
-# Templates
-# --------------------
-TEMPLATES = [
-    "youtube_thumbnail",
-    "email",
-    "ad",
-    "explain_simple"
-]
+TEMPLATE_RULES = {
+    "chat": "Reply like a friendly AI assistant 😊",
+    "email": "Write a professional email with subject and emojis ✉️",
+    "blog": "Write a blog with headings, bullets, and emojis ✍️🔥",
+    "ad": "Write a persuasive advertisement with emojis 📢🔥",
+    "youtube_thumbnail": "Generate 5 YouTube thumbnail titles in ALL CAPS with emojis 🎬🔥"
+}
 
-# --------------------
-# Root
-# --------------------
 @app.get("/")
 def root():
-    return {"status": "Akhila AI running with OpenAI (classic import)"}
+    return {"status": "Akhila AI backend running 🚀"}
 
-# --------------------
-# Templates list
-# --------------------
-@app.get("/templates")
-def get_templates():
-    return {"templates": TEMPLATES}
-
-# --------------------
-# Prompt builder
-# --------------------
-def build_prompt(template: str, user_input: str) -> str:
-    if template == "youtube_thumbnail":
-        return f"""
-Generate 5 viral YouTube thumbnail titles.
-Topic: {user_input}
-Use emojis and strong curiosity hooks.
-"""
-
-    if template == "email":
-        return f"""
-Write a polite and professional email.
-Context: {user_input}
-Tone: respectful
-Include subject line.
-"""
-
-    if template == "ad":
-        return f"""
-Write a short marketing advertisement.
-Product or idea: {user_input}
-Make it catchy and persuasive.
-"""
-
-    if template == "explain_simple":
-        return f"""
-Explain this in very simple terms so a beginner can understand:
-{user_input}
-"""
-
-    return user_input
-
-# --------------------
-# OpenAI call
-# --------------------
-def ask_openai(prompt: str) -> str:
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are Akhila AI, a helpful assistant."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.8
-        )
-        return response["choices"][0]["message"]["content"]
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-# --------------------
-# Generate endpoint
-# --------------------
 @app.post("/generate")
 def generate(req: GenerateRequest):
-    if req.template not in TEMPLATES:
-        return {"output": "Invalid template selected"}
+    system_prompt = TEMPLATE_RULES.get(req.template, "Be helpful")
 
-    final_prompt = build_prompt(req.template, req.prompt)
-    output = ask_openai(final_prompt)
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": req.prompt}
+        ],
+        temperature=0.8
+    )
 
-    return {"output": output}
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    return {
+        "output": response["choices"][0]["message"]["content"]
+    }
